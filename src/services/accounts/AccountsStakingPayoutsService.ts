@@ -6,9 +6,9 @@ import {
 	Perbill,
 	StakingLedger,
 } from '@polkadot/types/interfaces';
-import * as BN from 'bn.js';
 import { BadRequest } from 'http-errors';
 
+import PerbillMath from '../../arithmetic/Perbill';
 import {
 	IAccountStakingPayouts,
 	IEraPayouts,
@@ -17,8 +17,6 @@ import {
 import { AbstractService } from '../AbstractService';
 
 export class AccountsStakingPayoutsService extends AbstractService {
-	private readonly oneBillion = new BN(1_000_000_000);
-
 	/**
 	 * Fetch and derive payouts for `address`.
 	 *
@@ -169,22 +167,17 @@ export class AccountsStakingPayoutsService extends AbstractService {
 				continue;
 			}
 
-			const validatorRewardPointsPerbill = validatorRewardPoints.mul(
-				this.oneBillion
-			);
-			const totalEraRewardPointsPerbill = totalEraRewardPoints.mul(
-				this.oneBillion
-			);
 			// This is the fraction of the total reward that the validator and the nominators will get
-			const validatorTotalRewardPartPerbill = validatorRewardPointsPerbill.div(
-				totalEraRewardPointsPerbill
+			const validatorTotalRewardPartPerbill = PerbillMath.fromRationalApproximation(
+				validatorRewardPoints,
+				totalEraRewardPoints
 			);
 
-			const eraPayoutPerbill = eraPayout.mul(this.oneBillion);
+			// const eraPayoutPerbill = eraPayout.mul(this.oneBillion);
 			// This is how much validator + nominators are entitled to
-			const validatorTotalPayoutPerbill = validatorTotalRewardPartPerbill.mul(
-				eraPayoutPerbill
-			);
+			const validatorTotalPayout = validatorTotalRewardPartPerbill
+				.mul(eraPayout)
+				.div(PerbillMath.one);
 
 			const {
 				commission: commissionPerbill,
@@ -208,45 +201,36 @@ export class AccountsStakingPayoutsService extends AbstractService {
 			}
 
 			// Calculate validators cut off the top
-			const validatorCommissionPayoutPerbill = commissionPerbill.mul(
-				validatorTotalPayoutPerbill
-			);
+			const validatorCommissionPayout = commissionPerbill
+				.mul(validatorTotalPayout)
+				.div(PerbillMath.one);
+
 			// This is whats left after subtracting commission
-			const validatorLeftoverPayoutPerbill = validatorTotalPayoutPerbill.sub(
-				validatorCommissionPayoutPerbill
+			const validatorLeftoverPayout = validatorTotalPayout.sub(
+				validatorCommissionPayout
 			);
 
 			// Calculate the payout for `address`
-			const nominatorExposurePerbill = nominatorExposure
-				.unwrap()
-				.mul(this.oneBillion);
-			const totalExposurePerbill = totalExposure
-				.unwrap()
-				.mul(this.oneBillion);
-			const nominatorExposurePartPerbill = nominatorExposurePerbill.div(
-				totalExposurePerbill
+			const nominatorExposurePartPerbill = PerbillMath.fromRationalApproximation(
+				nominatorExposure.unwrap(),
+				totalExposure.unwrap()
 			);
-			const nominatorLeftoverPayoutPerbill = nominatorExposurePartPerbill.mul(
-				validatorLeftoverPayoutPerbill
-			);
+			const nominatorLeftoverPayout = nominatorExposurePartPerbill
+				.mul(validatorLeftoverPayout)
+				.div(PerbillMath.one);
 
 			// Add commission if address is validator
 			const nominatorPayoutEstimate =
 				address === validatorId
-					? nominatorLeftoverPayoutPerbill.add(
-							validatorCommissionPayoutPerbill
-					  )
-					: nominatorLeftoverPayoutPerbill;
+					? nominatorLeftoverPayout.add(validatorCommissionPayout)
+					: nominatorLeftoverPayout;
 
 			payouts.push({
 				validatorId,
-				nominatorPayoutEstimate: nominatorPayoutEstimate.div(
-					this.oneBillion
-				),
-				validatorTotalPayoutEstimate: validatorTotalPayoutPerbill.div(
-					this.oneBillion
-				), // TODO change names
+				nominatorPayoutEstimate,
 				claimed,
+				validatorTotalPayoutEstimate: validatorTotalPayout,
+				validatorCommissionPayoutEstimate: validatorCommissionPayout,
 				validatorRewardPoints: validatorRewardPoints,
 				validatorCommission: commissionPerbill,
 				totalValidatorExposure: totalExposure.unwrap(),

@@ -4,8 +4,9 @@ import * as BN from 'bn.js';
 export interface IPayout {
 	validatorId: string;
 	nominatorPayoutEstimate: BN;
-	validatorTotalPayoutEstimate: BN;
 	claimed: boolean;
+	validatorTotalPayoutEstimate: BN;
+	validatorCommissionPayoutEstimate: BN;
 	validatorCommission: Perbill;
 	validatorRewardPoints: RewardPoint;
 	totalValidatorExposure: Balance;
