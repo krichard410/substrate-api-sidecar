@@ -173,7 +173,6 @@ export class AccountsStakingPayoutsService extends AbstractService {
 				totalEraRewardPoints
 			);
 
-			// const eraPayoutPerbill = eraPayout.mul(this.oneBillion);
 			// This is how much validator + nominators are entitled to
 			const validatorTotalPayout = validatorTotalRewardPartPerbill
 				.mul(eraPayout)
