@@ -3,7 +3,7 @@ import * as BN from 'bn.js';
 export default class Perbill {
 	static readonly one = new BN(1_000_000_000);
 	/**
-	 * Aproximate mimic of substrate's per_things `from_rational_approximation`
+	 * Approximate mimic of substrate's per_things `from_rational_approximation`
 	 *
 	 * @param p
 	 * @param q
@@ -12,7 +12,7 @@ export default class Perbill {
 		const divCeil = (x: BN, f: BN) => {
 			let o = x.div(f);
 			const r = x.mod(f);
-			console.log('r', r);
+
 			if (r.gten(0)) {
 				o = o.addn(1);
 			}
